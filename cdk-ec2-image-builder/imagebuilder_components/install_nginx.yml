@@ -1,0 +1,16 @@
+name: InstallNginx
+description: "Install NGINX on the image"
+schemaVersion: 1.0
+components:
+  phases:
+    - name: build
+      steps:
+        - name: InstallNginx
+          action: ExecuteBash
+          inputs:
+            commands:
+              - sudo yum update -y
+              - sudo yum install -y nginx
+              - sudo systemctl enable nginx
+              - sudo systemctl start nginx
+
