@@ -3,7 +3,7 @@ from aws_cdk import (
     aws_codebuild as codebuild,
     aws_s3 as s3,
     aws_iam as iam,
-    core
+    core,
 )
 from aws_cdk.aws_s3_assets import Asset
 import os
