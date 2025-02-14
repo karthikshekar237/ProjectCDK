@@ -1,0 +1,521 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Creates separate SNS topics for each SSM Parameter update event and triggers a Lambda function to process notifications.
+
+Parameters:
+  AWSAccountID:
+    Type: String
+    Description: AWS Account ID where the IAM Role exists.
+
+Resources:
+
+  # SNS Topics for different AMIs
+  SNSTopicAmazonLinux2:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: soe-amazonlinux2-latest-updates
+      DisplayName: "SOEs Parameter Store Change Notification  for AmazonLinux 2"
+      Subscription:
+        - Endpoint: "karthik.shekar1@cba.com.au"
+          Protocol: "email"
+  
+  SNSTopicAmazonLinux2EKS128:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: soe-amazonlinux2eks128-latest-updates
+      DisplayName: "SOEs Parameter Store Change Notification for AmazonLinux 2 EKS 1.28"
+      Subscription:
+        - Endpoint: "karthik.shekar1@cba.com.au"
+          Protocol: "email"
+  
+  SNSTopicAmazonLinux2EKS129:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: soe-amazonlinux2eks129-latest-updates
+      DisplayName: "SOEs Parameter Store Change Notification for AmazonLinux 2 EKS 1.29"
+      Subscription:
+        - Endpoint: "karthik.shekar1@cba.com.au"
+          Protocol: "email"
+  
+  SNSTopicRHEL7:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: soe-rhel7-latest-updates
+      DisplayName: "SOEs Parameter Store Change Notification for RHEL7"
+      Subscription:
+        - Endpoint: "karthik.shekar1@cba.com.au"
+          Protocol: "email"
+  
+  SNSTopicRHEL8:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: soe-rhel8-latest-updates
+      DisplayName: "SOEs Parameter Store Change Notification for RHEL 8"
+      Subscription:
+        - Endpoint: "karthik.shekar1@cba.com.au"
+          Protocol: "email"
+  
+  SNSTopicRHEL9:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: soe-rhel9-latest-updates
+      DisplayName: "SOEs Parameter Store Change Notification for RHEL 9"
+      Subscription:
+        - Endpoint: "karthik.shekar1@cba.com.au"
+          Protocol: "email"
+  
+  SNSTopicWindows2016Core:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: soe-windows2016core-latest-updates
+      DisplayName: "SOEs Parameter Store Change Notification for Windows 2016 Core"
+      Subscription:
+        - Endpoint: "karthik.shekar1@cba.com.au"
+          Protocol: "email"
+
+  SNSTopicWindows2016Desktop:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: soe-windows2016desktop-latest-updates
+      DisplayName: "SOEs Parameter Store Change Notification for Windows 2016 Desktop"
+      Subscription:
+        - Endpoint: "karthik.shekar1@cba.com.au"
+          Protocol: "email"
+
+  SNSTopicWindows2019Core:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: soe-windows2019core-latest-updates
+      DisplayName: "SOEs Parameter Store Change Notification for Windows 2019 Core"
+      Subscription:
+        - Endpoint: "karthik.shekar1@cba.com.au"
+          Protocol: "email"
+  
+  SNSTopicWindows2019Desktop:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: soe-windows2019desktop-latest-updates
+      DisplayName: "SOEs Parameter Store Change Notification for Windows 2019 Desktop"
+      Subscription:
+        - Endpoint: "karthik.shekar1@cba.com.au"
+          Protocol: "email"
+  
+  SNSTopicWindows2022Preview:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: soe-windows2022preview-latest-updates
+      DisplayName: "SOEs Parameter Store Change Notification for Windows 2022 Preview"
+      Subscription:
+        - Endpoint: "karthik.shekar1@cba.com.au"
+          Protocol: "email"
+
+  # CloudWatch Event Rules to trigger Lambda per AMI update
+  EventRuleAmazonLinux2EKS128Latest:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: soe-ssm-update-amazonlinux2eks128latest
+      EventBusName: default
+      EventPattern:
+        source:
+          - "aws.ssm"
+        detail-type:
+          - "Parameter Store Change"
+        detail:
+          name:
+            - "/cba-soe/ami-amazonlinux2eks1.28-latest"
+          operation:
+            - "Update"
+      State: "ENABLED"
+      Targets:
+        - Id: "LambdaTarget"
+          Arn: !GetAtt LambdaFunc.Arn
+
+  EventRuleAmazonLinux2Latest:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: soe-ssm-update-amazonlinux2latest
+      EventBusName: default
+      EventPattern:
+        source:
+          - "aws.ssm"
+        detail-type:
+          - "Parameter Store Change"
+        detail:
+          name:
+            - "/cba-soe/ami-amazonlinux2-latest"
+          operation:
+            - "Update"
+      State: "ENABLED"
+      Targets:
+        - Id: "LambdaTarget"
+          Arn: !GetAtt LambdaFunc.Arn
+    
+  EventRuleAmazonLinux2EKS129Latest:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: soe-ssm-update-amazonlinux2eks129latest
+      EventBusName: default
+      EventPattern:
+        source:
+          - "aws.ssm"
+        detail-type:
+          - "Parameter Store Change"
+        detail:
+          name:
+            - "/cba-soe/ami-amazonlinux2eks1.29-latest"
+          operation:
+            - "Update"
+      State: "ENABLED"
+      Targets:
+        - Id: "LambdaTarget"
+          Arn: !GetAtt LambdaFunc.Arn
+  
+  EventRuleRHEL7Latest:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: soe-ssm-update-rhel7latest
+      EventBusName: default
+      EventPattern:
+        source:
+          - "aws.ssm"
+        detail-type:
+          - "Parameter Store Change"
+        detail:
+          name:
+            - "/cba-soe/ami-rhel7-latest"
+          operation:
+            - "Update"
+      State: "ENABLED"
+      Targets:
+        - Id: "LambdaTarget"
+          Arn: !GetAtt LambdaFunc.Arn
+  
+  EventRuleRHEL8Latest:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: soe-ssm-update-rhel8latest
+      EventBusName: default
+      EventPattern:
+        source:
+          - "aws.ssm"
+        detail-type:
+          - "Parameter Store Change"
+        detail:
+          name:
+            - "/cba-soe/ami-rhel8-latest"
+          operation:
+            - "Update"
+      State: "ENABLED"
+      Targets:
+        - Id: "LambdaTarget"
+          Arn: !GetAtt LambdaFunc.Arn
+
+  EventRuleRHEL9Latest:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: soe-ssm-update-rhel9latest
+      EventBusName: default
+      EventPattern:
+        source:
+          - "aws.ssm"
+        detail-type:
+          - "Parameter Store Change"
+        detail:
+          name:
+            - "/cba-soe/ami-rhel9-latest"
+          operation:
+            - "Update"
+      State: "ENABLED"
+      Targets:
+        - Id: "LambdaTarget"
+          Arn: !GetAtt LambdaFunc.Arn
+
+  EventRuleWindows2016CoreLatest:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: soe-ssm-update-windows2016corelatest
+      EventBusName: default
+      EventPattern:
+        source:
+          - "aws.ssm"
+        detail-type:
+          - "Parameter Store Change"
+        detail:
+          name:
+            - "/cba-soe/ami-windows2016core-latest"
+          operation:
+            - "Update"
+      State: "ENABLED"
+      Targets:
+        - Id: "LambdaTarget"
+          Arn: !GetAtt LambdaFunc.Arn
+  
+  EventRuleWindows2016DesktopLatest:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: soe-ssm-update-windows2016Desktoplatest
+      EventBusName: default
+      EventPattern:
+        source:
+          - "aws.ssm"
+        detail-type:
+          - "Parameter Store Change"
+        detail:
+          name:
+            - "/cba-soe/ami-windows2016desktop-latest"
+          operation:
+            - "Update"
+      State: "ENABLED"
+      Targets:
+        - Id: "LambdaTarget"
+          Arn: !GetAtt LambdaFunc.Arn
+
+  EventRuleWindows2019CoreLatest:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: soe-ssm-update-windows2019corelatest
+      EventBusName: default
+      EventPattern:
+        source:
+          - "aws.ssm"
+        detail-type:
+          - "Parameter Store Change"
+        detail:
+          name:
+            - "/cba-soe/ami-windows2019core-latest"
+          operation:
+            - "Update"
+      State: "ENABLED"
+      Targets:
+        - Id: "LambdaTarget"
+          Arn: !GetAtt LambdaFunc.Arn
+  
+  EventRuleWindows2019DesktopLatest:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: soe-ssm-update-windows2019desktoplatest
+      EventBusName: default
+      EventPattern:
+        source:
+          - "aws.ssm"
+        detail-type:
+          - "Parameter Store Change"
+        detail:
+          name:
+            - "/cba-soe/ami-windows2019desktop-latest"
+          operation:
+            - "Update"
+      State: "ENABLED"
+      Targets:
+        - Id: "LambdaTarget"
+          Arn: !GetAtt LambdaFunc.Arn
+
+  EventRuleWindows2022PreviewLatest:
+    Type: AWS::Events::Rule
+    Properties:
+      Name: soe-ssm-update-windows2022previewlatest
+      EventBusName: default
+      EventPattern:
+        source:
+          - "aws.ssm"
+        detail-type:
+          - "Parameter Store Change"
+        detail:
+          name:
+            - "/cba-soe/ami-windows2022preview-latest"
+          operation:
+            - "Update"
+      State: "ENABLED"
+      Targets:
+        - Id: "LambdaTarget"
+          Arn: !GetAtt LambdaFunc.Arn
+
+  # Lambda Function to Process SNS Notifications
+  LambdaFunc:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: Sends notification to appropriate SNS topic based on SSM Parameter Store update.
+      FunctionName: soe-ssm-update-handler
+      Handler: index.lambda_handler
+      Runtime: python3.12
+      Role: !Sub "arn:aws:iam::${AWSAccountID}:role/GHA-CICD"
+      Timeout: 240
+      Environment:
+        Variables:
+          SNS_TOPIC_AMAZONLINUX2: !Ref SNSTopicAmazonLinux2
+          SNS_TOPIC_AMAZONLINUX2EKS128: !Ref SNSTopicAmazonLinux2EKS128
+          SNS_TOPIC_AMAZONLINUX2EKS129: !Ref SNSTopicAmazonLinux2EKS129
+          SNS_TOPIC_RHEL7: !Ref SNSTopicRHEL7
+          SNS_TOPIC_RHEL8: !Ref SNSTopicRHEL8
+          SNS_TOPIC_RHEL9: !Ref SNSTopicRHEL9
+          SNS_TOPIC_WIN2016_CORE: !Ref SNSTopicWindows2016Core
+          SNS_TOPIC_WIN2019_CORE: !Ref SNSTopicWindows2019Core
+          SNS_TOPIC_WIN2016_DESKTOP: !Ref SNSTopicWindows2016Desktop
+          SNS_TOPIC_WIN2019_DESKTOP: !Ref SNSTopicWindows2019Desktop
+          SNS_TOPIC_WIN2022_PREVIEW: !Ref SNSTopicWindows2022Preview
+      Code:
+        ZipFile: |
+          import boto3
+          import os
+
+          sns_client = boto3.client('sns')
+
+          def lambda_handler(event, context):
+              ssm_parameter = event['detail']['name']
+              
+              sns_topics = {
+                  "/cba-soe/ami-amazonlinux2-latest": os.environ['SNS_TOPIC_AMAZONLINUX2'],
+                  "/cba-soe/ami-amazonlinux2eks1.28-latest": os.environ['SNS_TOPIC_AMAZONLINUX2EKS128'],
+                  "/cba-soe/ami-amazonlinux2eks1.29-latest": os.environ['SNS_TOPIC_AMAZONLINUX2EKS129'],
+                  "/cba-soe/ami-rhel7-latest": os.environ['SNS_TOPIC_RHEL7'],
+                  "/cba-soe/ami-rhel8-latest": os.environ['SNS_TOPIC_RHEL8'],
+                  "/cba-soe/ami-rhel9-latest": os.environ['SNS_TOPIC_RHEL9'],
+                  "/cba-soe/ami-windows2016core-latest": os.environ['SNS_TOPIC_WIN2016_CORE'],
+                  "/cba-soe/ami-windows2016desktop-latest": os.environ['SNS_TOPIC_WIN2016_DESKTOP'],
+                  "/cba-soe/ami-windows2019core-latest": os.environ['SNS_TOPIC_WIN2019_CORE'],
+                  "/cba-soe/ami-windows2019desktop-latest": os.environ['SNS_TOPIC_WIN2019_DESKTOP'],
+                  "/cba-soe/ami-windows2022preview-latest": os.environ['SNS_TOPIC_WIN2022_PREVIEW']
+              }
+
+              if ssm_parameter in sns_topics:
+                  topic_arn = sns_topics[ssm_parameter]
+                  sns_client.publish(
+                      TopicArn=topic_arn,
+                      Subject="SOE AMI Update",
+                      Message=f"New AMI for {ssm_parameter} has been released."
+                  )
+              else:
+                  print(f"No SNS topic found for {ssm_parameter}")
+
+  # Permissions for CloudWatch to trigger Lambda
+  LambdaInvokePermissionAmazonLinux2:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      FunctionName: !Ref LambdaFunc
+      Action: 'lambda:InvokeFunction'
+      Principal: 'events.amazonaws.com'
+      SourceArn: !GetAtt EventRuleAmazonLinux2Latest.Arn
+
+  LambdaInvokePermissionAmazonLinux2EKS128:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      FunctionName: !Ref LambdaFunc
+      Action: 'lambda:InvokeFunction'
+      Principal: 'events.amazonaws.com'
+      SourceArn: !GetAtt EventRuleAmazonLinux2EKS128Latest.Arn
+
+  LambdaInvokePermissionAmazonLinux2EKS129:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      FunctionName: !Ref LambdaFunc
+      Action: 'lambda:InvokeFunction'
+      Principal: 'events.amazonaws.com'
+      SourceArn: !GetAtt EventRuleAmazonLinux2EKS129Latest.Arn
+
+  LambdaInvokePermissionRHEL7:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      FunctionName: !Ref LambdaFunc
+      Action: 'lambda:InvokeFunction'
+      Principal: 'events.amazonaws.com'
+      SourceArn: !GetAtt EventRuleRHEL7Latest.Arn
+
+  LambdaInvokePermissionRHEL8:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      FunctionName: !Ref LambdaFunc
+      Action: 'lambda:InvokeFunction'
+      Principal: 'events.amazonaws.com'
+      SourceArn: !GetAtt EventRuleRHEL8Latest.Arn
+
+  LambdaInvokePermissionRHEL9:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      FunctionName: !Ref LambdaFunc
+      Action: 'lambda:InvokeFunction'
+      Principal: 'events.amazonaws.com'
+      SourceArn: !GetAtt EventRuleRHEL9Latest.Arn
+
+  LambdaInvokePermissionWindows2016Core:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      FunctionName: !Ref LambdaFunc
+      Action: 'lambda:InvokeFunction'
+      Principal: 'events.amazonaws.com'
+      SourceArn: !GetAtt EventRuleWindows2016CoreLatest.Arn
+
+  LambdaInvokePermissionWindows2016Desktop:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      FunctionName: !Ref LambdaFunc
+      Action: 'lambda:InvokeFunction'
+      Principal: 'events.amazonaws.com'
+      SourceArn: !GetAtt EventRuleWindows2016DesktopLatest.Arn
+
+  LambdaInvokePermissionWindows2019Core:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      FunctionName: !Ref LambdaFunc
+      Action: 'lambda:InvokeFunction'
+      Principal: 'events.amazonaws.com'
+      SourceArn: !GetAtt EventRuleWindows2019CoreLatest.Arn
+
+  LambdaInvokePermissionWindows2019Desktop:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      FunctionName: !Ref LambdaFunc
+      Action: 'lambda:InvokeFunction'
+      Principal: 'events.amazonaws.com'
+      SourceArn: !GetAtt EventRuleWindows2019DesktopLatest.Arn
+
+  LambdaInvokePermissionWindows2022Preview:
+    Type: 'AWS::Lambda::Permission'
+    Properties:
+      FunctionName: !Ref LambdaFunc
+      Action: 'lambda:InvokeFunction'
+      Principal: 'events.amazonaws.com'
+      SourceArn: !GetAtt EventRuleWindows2022PreviewLatest.Arn
+
+Outputs:
+  Windows2016CoreTopic:
+    Value: !Ref SNSTopicWindows2016Core
+    Description: "SNS Topic for Windows 2016 Core AMI Updates"
+
+  Windows2019CoreTopic:
+    Value: !Ref SNSTopicWindows2019Core
+    Description: "SNS Topic for Windows 2019 Core AMI Updates"
+
+  RHEL8Topic:
+    Value: !Ref SNSTopicRHEL8
+    Description: "SNS Topic for RHEL 8 AMI Updates"
+
+  AmazonLinux2Topic:
+    Value: !Ref SNSTopicAmazonLinux2
+    Description: "SNS Topic for Amazon Linux 2 AMI Updates"
+
+  AmazonLinux2EKS128Topic:
+    Value: !Ref SNSTopicAmazonLinux2EKS128
+    Description: "SNS Topic for Amazon Linux 2 AMI Updates"
+
+  AmazonLinux2EKS129Topic:
+    Value: !Ref SNSTopicAmazonLinux2EKS129
+    Description: "SNS Topic for Amazon Linux 2 AMI Updates"
+  
+  RHEL7Topic:
+    Value: !Ref SNSTopicRHEL7
+    Description: "SNS Topic for Amazon Linux 2 AMI Updates"
+
+  RHEL9Topic:
+    Value: !Ref SNSTopicRHEL9
+    Description: "SNS Topic for Amazon Linux 2 AMI Updates"
+
+  Windows2016DesktopTopic:
+    Value: !Ref SNSTopicWindows2016Desktop
+    Description: "SNS Topic for Windows 2016 Core AMI Updates"
+
+  Windows2019DesktopTopic:
+    Value: !Ref SNSTopicWindows2019Desktop
+    Description: "SNS Topic for Windows 2019 Core AMI Updates"
+
+  Windows2022PreviewTopic:
+    Value: !Ref SNSTopicWindows2022Preview
+    Description: "SNS Topic for Windows 2019 Core AMI Updates"
