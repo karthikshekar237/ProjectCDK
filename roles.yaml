@@ -1,0 +1,311 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Github roles that will be used by Github Actions workflows
+
+Resources:
+  GithubTrustRole:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: 'GHA-Trust'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Action: 'sts:AssumeRoleWithWebIdentity'
+            Effect: Allow
+            Principal:
+              Federated: !Sub arn:aws:iam::${AWS::AccountId}:oidc-provider/token.actions.githubusercontent.com
+            Condition:
+              StringEquals:
+                'token.actions.githubusercontent.com:aud': 'sts.amazonaws.com'
+              StringLike:
+                'token.actions.githubusercontent.com:sub': 
+                  - "repo:CBA-Sandbox/*:environment:nonprod"
+                  - "repo:CBA-General/*:environment:nonprod"
+      Policies:
+        - PolicyName: DenyOutsideAccess
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Condition:
+                  StringNotEquals:
+                    aws:SourceVpc:
+                      - "vpc-0ebb4ee6c9c0859a3"
+                Action: "*"
+                Resource: "*"
+                Effect: Deny
+        - PolicyName: AllowAssumeRole
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - sts:AssumeRole
+                  - sts:TagSession
+                Resource: !Sub arn:aws:iam::${AWS::AccountId}:role/GHA-CICD
+                Condition:
+                  StringNotEqualsIfExists:
+                    aws:ResourceTag/cns-guardrail: 'true'
+  GithubCICD:
+    Type: 'AWS::IAM::Role'
+    Properties:
+      RoleName: 'GHA-CICD'
+      ManagedPolicyArns: 
+        - 'arn:aws:iam::aws:policy/ReadOnlyAccess'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Action:
+              - 'sts:AssumeRole'
+              - 'sts:TagSession'
+            Effect: Allow
+            Principal:
+              AWS: !GetAtt GithubTrustRole.Arn
+      Policies:
+        - PolicyName: 'GHACICDPolicies'
+          PolicyDocument:
+            Statement:
+            # AssumeRole Policies
+            - Effect: Allow
+              Action:
+                - 'sts:AssumeRole'
+              Resource: !Sub arn:aws:iam::${AWS::AccountId}:role/*
+              Condition:
+                StringNotEqualsIfExists: 
+                  aws:ResourceTag/cns-guardrail: 'true'
+            # Cloudformation Policies
+            - Effect: Allow
+              Action:
+                - cloudformation:CreateStack
+                - cloudformation:UpdateStack
+                - cloudformation:DeleteStack
+                - cloudformation:DeleteChangeSet
+                - cloudformation:CreateChangeSet
+                - cloudformation:ExecuteChangeSet
+                - cloudformation:CreateUploadBucket
+              NotResource:
+                - arn:aws:cloudformation:*:*:stack/StackSet*
+                - arn:aws:cloudformation:*:*:stack/cns*
+              Condition:
+                StringEquals:
+                  aws:RequestedRegion:
+                  - ap-southeast-2
+            # S3 Policies
+            - Effect: Allow
+              Action:
+                - s3:PutObject
+                - s3:GetObject
+                - s3:GetObjectVersion
+                - s3:GetBucketacl
+                - s3:GetBucketLocation
+                - s3:ListBucket
+              Condition:
+                StringEquals:
+                  aws:RequestedRegion:
+                    - ap-southeast-2
+              NotResource:
+                - arn:aws:s3:::cns*
+            # Log Policies
+            - Effect: Allow
+              Action:
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+                - logs:PutLogEvents
+              Condition:
+                StringEquals:
+                  aws:RequestedRegion:
+                    - ap-southeast-2
+                StringNotEqualsIfExists:
+                  aws:ResourceTag/cns-guardrail: 'true'
+              Resource: '*'
+            # SecretsManager Policies
+            - Effect: Allow
+              Action:
+                - secretsmanager:GetSecretValue
+              Resource: '*'
+            # ec2 Policies
+            - Effect: Allow
+              Action:
+                - ec2:CreateNetworkInterface
+                - ec2:DescribeDhcpOptions
+                - ec2:DescribeNetworkInterfaces
+                - ec2:DeleteNetworkInterface
+                - ec2:DescribeSubnets
+                - ec2:DescribeSecurityGroups
+                - ec2:DescribeVpcs
+                - ec2:TerminateInstances
+                - ec2:CopyImage
+                - ec2:CreateImage
+                - ec2:ModifyImageAttribute
+              Condition:
+                StringEquals:
+                  aws:RequestedRegion:
+                  - ap-southeast-2
+              Resource: '*'
+            # ec2 Policy to create EC2 instances for testing purposes
+            - Effect: Allow
+              Action:
+                - ec2:RunInstances
+              Condition:
+                StringEquals:
+                  ec2:RootDeviceType: ebs
+                  aws:RequestTag/Zone2ZoneName:
+                    - ECCF
+                    - IC
+                    - MGMT
+                    - RES
+                    - SEC
+                StringNotLike: 
+                  ec2:InstanceProfile: 
+                    - arn:aws:iam::*:instance-profile/cns*
+                    - arn:aws:iam::*:instance-profile/acoe-cns*
+                    - arn:aws:iam::*:instance-profile/AdministratorRole*
+              Resource: 
+                  - arn:aws:ec2:*:*:instance/*
+            - Effect: Allow
+              Action:
+                - ec2:RunInstances
+              Condition:
+                StringNotLike: 
+                  ec2:InstanceProfile: 
+                    - arn:aws:iam::*:instance-profile/cns*
+                    - arn:aws:iam::*:instance-profile/acoe-cns*
+                    - arn:aws:iam::*:instance-profile/AdministratorRole*
+              Resource:
+                  - arn:aws:ec2:*:*:network-interface/* 
+                  - arn:aws:ec2:*:*:volume/*
+                  - arn:aws:ec2:*:*:image/* 
+                  - arn:aws:ec2:*:*:key-pair/* 
+                  - arn:aws:ec2:*:*:launch-template/* 
+                  - arn:aws:ec2:*:*:placement-group/* 
+                  - arn:aws:ec2:*:*:security-group/* 
+                  - arn:aws:ec2:*:*:snapshot/* 
+                  - arn:aws:ec2:*:*:subnet/* 
+            - Effect: Allow
+              Action:
+                - ec2:CreateTags
+              Condition:
+                StringEquals:
+                  aws:RequestedRegion:
+                  - ap-southeast-2
+              Resource:
+                - arn:aws:ec2:*:*:dhcp-options/* 
+                - arn:aws:ec2:*:*:instance/* 
+                - arn:aws:ec2:*:*:launch-template/* 
+                - arn:aws:ec2:*:*:network-interface/*
+                - arn:aws:ec2:*:*:volume/* 
+                - arn:aws:ec2:*::image/* 
+                - arn:aws:ec2:*::snapshot/*
+            # SSM Policies
+            - Effect: Allow
+              Action:
+              - ssm:DescribeParameters
+              - ssm:GetParameter
+              - ssm:GetResourcePolicies
+              - ssm:GetParameters
+              - ssm:CreateDocument
+              - ssm:DeleteDocument
+              - ssm:StartAutomationExecution
+              - ssm:GetAutomationExecution
+              - ssm:SendCommand
+              Resource: "*"
+              Condition:
+                StringEquals:
+                  aws:RequestedRegion:
+                  - ap-southeast-2
+            - Effect: Allow
+              Action:
+              - ssm:DeleteParameter
+              - ssm:DeleteParameters
+              NotResource:
+                - arn:aws:ssm:*:*:parameter/CNS/**
+              Condition:
+                StringEquals:
+                  aws:RequestedRegion:
+                    - ap-southeast-2
+                StringNotEqualsIgnoreCase:
+                  ssm:ResourceTag/cns-guardrail: 'true'
+            # IAM Policies
+            - Effect: Allow
+              Action:
+              - iam:GetRole
+              - iam:PassRole
+              Resource: !Sub arn:aws:iam::${AWS::AccountId}:role/*
+              Condition:
+                StringEquals:
+                  aws:RequestedRegion:
+                  - ap-southeast-2
+            # KMS Policies
+            - Effect: Allow
+              Action:   
+               - kms:DescribeKey
+               - kms:CreateGrant
+               - kms:ListGrants
+               - kms:RevokeGrant
+               - kms:ReEncryptFrom
+               - kms:ReEncryptTo
+               - kms:GenerateDataKeyPair
+               - kms:GenerateDataKeyPairWithoutPlaintext
+               - kms:GenerateDataKeyWithoutPlaintext
+               - kms:Decrypt
+               - kms:Encrypt
+              Resource: "*"
+              Condition:
+                StringEquals:
+                  aws:RequestedRegion:
+                    - ap-southeast-2
+            # Lambda Policies
+            - Effect: Allow
+              Action:   
+               - lambda:InvokeFunction
+               - lambda:UpdateFunctionCode
+               - lambda:CreateFunction
+              NotResource:
+                - arn:aws:lambda:*:*:function:cns*
+              Condition:
+                StringEquals:
+                  aws:RequestedRegion:
+                  - ap-southeast-2
+            # Imagebuilder Policies
+            - Effect: Allow
+              Action:
+                - imagebuilder:StartImagePipelineExecution
+              Resource: "*"
+            # SNS Permissions
+            - Effect: Allow
+              Action:
+                - sns:CreateTopic
+                - sns:ConfirmSubscription
+                - sns:SetEndpointAttributes
+                - sns:SetSubscriptionAttributes
+                - sns:Publish
+                - sns:Subscribe
+                - sns:Unsubscribe
+              NotResource:
+                - arn:aws:sns:*:*:cns*
+            # RAM Permissions
+            - Effect: Allow
+              Action:
+                - ram:CreateResourceShare
+                - ram:DeleteResourceShare
+              Resource: "*"
+            # GHA EventBridgePermissions
+            - Effect: Allow
+              Action:
+                - events:PutRule
+                - events:DescribeRule
+                - events:EnableRule
+                - events:PutTargets
+              NotResource:
+                - arn:aws:events:*:*:rule/cns*
+            - Effect: Allow
+              Principal:
+                Service:
+                  - "lambda.amazonaws.com"
+              Action:
+                - "sts:AssumeRole"
+              Resource: "arn:aws:iam::${AWS::AccountId}:role/GHA-CICD"
+              Condition:
+                StringNotEqualsIfExists:
+                  aws:ResourceTag/cns-guardrail: "true"
+    ManagedPolicyArns:
+      - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
