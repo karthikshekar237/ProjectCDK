@@ -19,8 +19,8 @@ Resources:
                 'token.actions.githubusercontent.com:aud': 'sts.amazonaws.com'
               StringLike:
                 'token.actions.githubusercontent.com:sub': 
-                  - "repo:CBA-Sandbox/*:environment:nonprod"
-                  - "repo:CBA-General/*:environment:nonprod"
+                  - "repo:oca-Sandbox/*:environment:nonprod"
+                  - "repo:oca-General/*:environment:nonprod"
       Policies:
         - PolicyName: DenyOutsideAccess
           PolicyDocument:
