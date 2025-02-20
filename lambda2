@@ -1,0 +1,66 @@
+import boto3
+import os
+
+ssm_client = boto3.client("ssm")
+sns_client = boto3.client("sns")
+
+def lambda_handler(event, context):
+    print(f"Received event: {event}")
+
+    # Extract the parameter name from the event
+    ssm_parameter = event.get("detail", {}).get("name", "Unknown")
+
+    if ssm_parameter == "Unknown":
+        print("Warning: 'name' key is missing in the event.")
+        return {
+            "statusCode": 400,
+            "error": "Missing parameter name in event"
+        }
+
+    try:
+        # Fetch the SSM parameter value (e.g., AMI ID)
+        response = ssm_client.get_parameter(Name=ssm_parameter, WithDecryption=True)
+        param_value = response["Parameter"]["Value"]
+
+        print(f"Parameter Name: {ssm_parameter}")
+        print(f"Parameter Value: {param_value}")
+
+        # SNS Topics mapping
+        sns_topics = {
+            "/cba-soe/ami-amazonlinux2-latest": os.environ.get("SNS_TOPIC_AMAZONLINUX2"),
+            "/cba-soe/ami-amazonlinux2eks1.28-latest": os.environ.get("SNS_TOPIC_AMAZONLINUX2EKS128"),
+            "/cba-soe/ami-amazonlinux2eks1.29-latest": os.environ.get("SNS_TOPIC_AMAZONLINUX2EKS129"),
+            "/cba-soe/ami-rhel7-latest": os.environ.get("SNS_TOPIC_RHEL7"),
+            "/cba-soe/ami-rhel8-latest": os.environ.get("SNS_TOPIC_RHEL8"),
+            "/cba-soe/ami-rhel9-latest": os.environ.get("SNS_TOPIC_RHEL9"),
+            "/cba-soe/ami-windows2016core-latest": os.environ.get("SNS_TOPIC_WIN2016_CORE"),
+            "/cba-soe/ami-windows2016desktop-latest": os.environ.get("SNS_TOPIC_WIN2016_DESKTOP"),
+            "/cba-soe/ami-windows2019core-latest": os.environ.get("SNS_TOPIC_WIN2019_CORE"),
+            "/cba-soe/ami-windows2019desktop-latest": os.environ.get("SNS_TOPIC_WIN2019_DESKTOP"),
+            "/cba-soe/ami-windows2022preview-latest": os.environ.get("SNS_TOPIC_WIN2022_PREVIEW")
+        }
+
+        # Publish to the relevant SNS topic
+        topic_arn = sns_topics.get(ssm_parameter)
+        if topic_arn:
+            sns_client.publish(
+                TopicArn=topic_arn,
+                Subject="SOE AMI Update",
+                Message=f"New AMI for {ssm_parameter} has been released.\nAMI ID: {param_value}"
+            )
+            print(f"Notification sent to {topic_arn} with AMI ID {param_value}")
+        else:
+            print(f"No SNS topic found for {ssm_parameter}")
+
+        return {
+            "statusCode": 200,
+            "parameter_name": ssm_parameter,
+            "parameter_value": param_value
+        }
+
+    except Exception as e:
+        print(f"Error fetching parameter or sending SNS: {str(e)}")
+        return {
+            "statusCode": 500,
+            "error": str(e)
+        }
