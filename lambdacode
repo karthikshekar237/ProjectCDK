@@ -1,0 +1,174 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Creates separate SNS topics for each SSM Parameter update event and triggers a Lambda function to process notifications.
+
+Resources:
+
+  # SNS Topics for different AMIs
+  SNSTopicAmazonLinux2:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: soe-amazonlinux2-latest-updates
+      DisplayName: "SOEs Parameter Store Change Notification for AmazonLinux 2"
+
+  SNSTopicAmazonLinux2EKS128:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: soe-amazonlinux2eks128-latest-updates
+      DisplayName: "SOEs Parameter Store Change Notification for AmazonLinux 2 EKS 1.28"
+
+  SNSTopicAmazonLinux2EKS129:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: soe-amazonlinux2eks129-latest-updates
+      DisplayName: "SOEs Parameter Store Change Notification for AmazonLinux 2 EKS 1.29"
+
+  SNSTopicRHEL7:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: soe-rhel7-latest-updates
+      DisplayName: "SOEs Parameter Store Change Notification for RHEL 7"
+
+  SNSTopicRHEL8:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: soe-rhel8-latest-updates
+      DisplayName: "SOEs Parameter Store Change Notification for RHEL 8"
+
+  SNSTopicRHEL9:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: soe-rhel9-latest-updates
+      DisplayName: "SOEs Parameter Store Change Notification for RHEL 9"
+
+  SNSTopicWindows2016Core:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: soe-windows2016core-latest-updates
+      DisplayName: "SOEs Parameter Store Change Notification for Windows 2016 Core"
+
+  SNSTopicWindows2016Desktop:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: soe-windows2016desktop-latest-updates
+      DisplayName: "SOEs Parameter Store Change Notification for Windows 2016 Desktop"
+
+  SNSTopicWindows2019Core:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: soe-windows2019core-latest-updates
+      DisplayName: "SOEs Parameter Store Change Notification for Windows 2019 Core"
+
+  SNSTopicWindows2019Desktop:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: soe-windows2019desktop-latest-updates
+      DisplayName: "SOEs Parameter Store Change Notification for Windows 2019 Desktop"
+
+  SNSTopicWindows2022Preview:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: soe-windows2022preview-latest-updates
+      DisplayName: "SOEs Parameter Store Change Notification for Windows 2022 Preview"
+
+  # IAM Role for Lambda to publish to SNS
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: soe-lambda-sns-role
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: SNSPublishPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - sns:Publish
+                Resource: 
+                  - !Ref SNSTopicAmazonLinux2
+                  - !Ref SNSTopicAmazonLinux2EKS128
+                  - !Ref SNSTopicAmazonLinux2EKS129
+                  - !Ref SNSTopicRHEL7
+                  - !Ref SNSTopicRHEL8
+                  - !Ref SNSTopicRHEL9
+                  - !Ref SNSTopicWindows2016Core
+                  - !Ref SNSTopicWindows2016Desktop
+                  - !Ref SNSTopicWindows2019Core
+                  - !Ref SNSTopicWindows2019Desktop
+                  - !Ref SNSTopicWindows2022Preview
+
+  # Lambda Function to Process SNS Notifications
+  LambdaFunc:
+    Type: AWS::Lambda::Function
+    Properties:
+      Description: Sends notification to appropriate SNS topic based on SSM Parameter Store update.
+      FunctionName: soe-ssm-update-handler
+      Handler: index.lambda_handler
+      Runtime: python3.12
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Timeout: 240
+      Environment:
+        Variables:
+          SNS_TOPIC_AMAZONLINUX2: !Ref SNSTopicAmazonLinux2
+          SNS_TOPIC_AMAZONLINUX2EKS128: !Ref SNSTopicAmazonLinux2EKS128
+          SNS_TOPIC_AMAZONLINUX2EKS129: !Ref SNSTopicAmazonLinux2EKS129
+          SNS_TOPIC_RHEL7: !Ref SNSTopicRHEL7
+          SNS_TOPIC_RHEL8: !Ref SNSTopicRHEL8
+          SNS_TOPIC_RHEL9: !Ref SNSTopicRHEL9
+          SNS_TOPIC_WIN2016_CORE: !Ref SNSTopicWindows2016Core
+          SNS_TOPIC_WIN2019_CORE: !Ref SNSTopicWindows2019Core
+          SNS_TOPIC_WIN2016_DESKTOP: !Ref SNSTopicWindows2016Desktop
+          SNS_TOPIC_WIN2019_DESKTOP: !Ref SNSTopicWindows2019Desktop
+          SNS_TOPIC_WIN2022_PREVIEW: !Ref SNSTopicWindows2022Preview
+          
+      Code:
+        ZipFile: |
+          import boto3
+          import os
+
+          sns_client = boto3.client('sns')
+
+          def lambda_handler(event, context):
+              ssm_parameter = event['detail']['name']
+              new_ami_id = event['detail']['value']  # Extract the new AMI ID
+
+              ami_mapping = {
+                  "/cba-soe/ami-amazonlinux2-latest": ("Amazon Linux 2", os.environ['SNS_TOPIC_AMAZONLINUX2']),
+                  "/cba-soe/ami-amazonlinux2eks1.28-latest": ("Amazon Linux 2 EKS 1.28", os.environ['SNS_TOPIC_AMAZONLINUX2EKS128']),
+                  "/cba-soe/ami-amazonlinux2eks1.29-latest": ("Amazon Linux 2 EKS 1.29", os.environ['SNS_TOPIC_AMAZONLINUX2EKS129']),
+                  "/cba-soe/ami-rhel7-latest": ("RHEL 7", os.environ['SNS_TOPIC_RHEL7']),
+                  "/cba-soe/ami-rhel8-latest": ("RHEL 8", os.environ['SNS_TOPIC_RHEL8']),
+                  "/cba-soe/ami-rhel9-latest": ("RHEL 9", os.environ['SNS_TOPIC_RHEL9']),
+                  "/cba-soe/ami-windows2016core-latest": ("Windows Server 2016 Core", os.environ['SNS_TOPIC_WIN2016_CORE']),
+                  "/cba-soe/ami-windows2016desktop-latest": ("Windows Server 2016 Desktop", os.environ['SNS_TOPIC_WIN2016_DESKTOP']),
+                  "/cba-soe/ami-windows2019core-latest": ("Windows Server 2019 Core", os.environ['SNS_TOPIC_WIN2019_CORE']),
+                  "/cba-soe/ami-windows2019desktop-latest": ("Windows Server 2019 Desktop", os.environ['SNS_TOPIC_WIN2019_DESKTOP']),
+                  "/cba-soe/ami-windows2022preview-latest": ("Windows Server 2022 Preview", os.environ['SNS_TOPIC_WIN2022_PREVIEW'])
+              }
+
+              if ssm_parameter in ami_mapping:
+                  os_name, topic_arn = ami_mapping[ssm_parameter]
+
+                  # Construct the SNS message
+                  message = f"""
+                  **AMI Update**
+                  A new AMI for {os_name} has been released.
+                  
+                  **AMI ID:** `{new_ami_id}`
+                  """
+
+                  sns_client.publish(
+                      TopicArn=topic_arn,
+                      Subject="SOE AMI Update",
+                      Message=message
+                  )
+
+                  print(f"Notification sent for {os_name}: {new_ami_id}")
+              else:
+                  print(f"No SNS topic found for {ssm_parameter}")
